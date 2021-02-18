@@ -563,7 +563,217 @@
 <p>混合编译模式综合了 AOT 和 JIT 的各种优点，使得应用在安装速度加快的同时，运行速度、存储空间和耗电量等指标都得到了优化。</p>
 <p>OT 和 JIT 的不同之处在于：JIT 是在运行时进行编译，是动态编译，并且每次运行程序的时候都需要对 odex 重新进行编译；而 AOT 是静态编译，应用在安装的时候会启动 dex2oat 过程把 dex 预编译成 ELF 文件，每次运行程序的时候不用重新编译，是真正意义上的本地应用。</p>
 <p><a target="_blank" rel="noopener" href="https://juejin.cn/post/6844903748058218509">详细参考</a></p>
-<h3 id="ART-和-Davlik-中垃圾回收的区别"><a href="#ART-和-Davlik-中垃圾回收的区别" class="headerlink" title="ART 和 Davlik 中垃圾回收的区别"></a>ART 和 Davlik 中垃圾回收的区别</h3><h3 id="安卓内存管理"><a href="#安卓内存管理" class="headerlink" title="安卓内存管理"></a>安卓内存管理</h3><h3 id="App-是如何沙箱化"><a href="#App-是如何沙箱化" class="headerlink" title="App 是如何沙箱化"></a>App 是如何沙箱化</h3><h2 id="3-项目"><a href="#3-项目" class="headerlink" title="3. 项目"></a>3. 项目</h2><h3 id="应用更新"><a href="#应用更新" class="headerlink" title="应用更新"></a>应用更新</h3><p>灰度，强制更新，分区域更新</p>
+<h3 id="ART-和-Davlik-中垃圾回收的区别"><a href="#ART-和-Davlik-中垃圾回收的区别" class="headerlink" title="ART 和 Davlik 中垃圾回收的区别"></a>ART 和 Davlik 中垃圾回收的区别</h3><p>Dalvik时期，对象的内存分配和回收都比较慢。因为Dalvik使用的GC是单线程的（早期的），在垃圾回收期间要暂停虚拟机上的其他所有线程。</p>
+<p>Dalvik GC采用了并发标记-清除（CMS）算法。标记-清除算法的特点是，不用的对象不会马上回收，而是等到可用内存用尽之后才回收。这样导致了很多对象在用完之后还会在内存中存活较长时间，不能及时释放。</p>
+<p>而且Dalvik GC只对后台的App进行内存整理（压缩），导致（前台App）堆中出现大量内存碎片，这些碎片往往都比较小，无法被分配给新对象，因为新的对象需要大块的连续内存空间。造成了严重的内存浪费。</p>
+<p>Dalvik中GC的问题如下:</p>
+<ol>
+<li>GC时挂起所有线程</li>
+<li>大而连续的空间紧张</li>
+<li>内存碎片化严重</li>
+</ol>
+<p>ART</p>
+<ol>
+<li>在ART中标记不需要挂起所有程序的线程：在ART中GC会要求程序在分配空间的时候标记自身的堆栈，这个过程非常短，不需要挂起所有程序的线程（解决问题1）</li>
+<li>提供 LOS ：large object space 专供Bitmap使用，从而提高了GC的管理效率和整体性能（解决问题2）</li>
+<li>ART里有moving collector来压缩活动对象，使得内存空间更加紧凑 （解决问题3）</li>
+</ol>
+<p>整体来看，我们可以把Android的GC演变总结为四个阶段：</p>
+<ol>
+<li><p>Dalvik GC : 第一阶段的GC，对应系统版本为Android KitKat之前。Dalvik GC使用了比较旧的”stop the world”设计，在垃圾回收期间会暂停虚拟机上的所有线程。</p>
+</li>
+<li><p>ART GC (Lollipop &amp; Marshamllow) : GC发展历程中最大的一次改动，ART/Dalvik的开发团队重写了整个GC。这一阶段的GC也被叫做“分代GC”，因为对象会因存活时间不同而具有不同的“代”（或者叫年龄），另外还有其他方面的大的改进，比如分配内存的方式等。</p>
+</li>
+<li><p>ART GC(Nougat) : ART/Dalvik团队用汇编重写了整个内存分配的过程。</p>
+</li>
+<li><p>ART GC(Oreo) : 对第一版ART GC进行了优化，最明显的改进是把垃圾回收过程改为并发执行。这一代的GC也叫“并发复制垃圾回收器（Concurrent Copying Garbage Collector）”，同时在其他方面也做了不少优化。</p>
+<p><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/89536376">Android ART 并行拷贝垃圾回收</a></p>
+</li>
+</ol>
+<p>CC GC 通过运行新生代 GC 或全堆 GC 来回收垃圾。理想情况下，新生代 GC 的运行频率更高。GC 会一直执行新生代 CC 回收，直到刚结束的回收周期的吞吐量（计算公式是：释放的字节数除以 GC 持续秒数）小于全堆 CC 回收的平均吞吐量。发生这种情况时，将为下一次并发 GC 选择全堆 CC（而不是新生代 CC）。全堆回收完成后，下一次 GC 将切换回新生代 CC。新生代 CC 在完成后不会调整堆占用空间限制，这是此策略发挥作用的一个关键因素。这使得新生代 CC 运行得越来越频繁，直到吞吐量低于全堆 CC，最终导致堆增大。</p>
+<p>ART回收区分前后台,前台默认使用CC, 后台使用CCBackground.</p>
+<p>区分回收力度GcType：<br>kGcTypeSticky：只回收上次GC后在Allocation Space中新分配的垃圾对象<br>kGcTypePartial：只回收Allocation Space的垃圾对象<br>kGcTypeFull：同时回收Zygote Space和Allocation Space的垃圾对象<br>kGcTypeMax</p>
+<p>区分堆：<br>ImageSpace 主要用来管理加载到内存中的art文件<br>Zygote Space Zygote进程的heap区<br>LargeObjeactSpace  主要管理存放大对象的内存区域<br>RegionSpace 常规内存对象的分配区域</p>
+<p>区分回收器：</p>
+<table>
+<thead>
+<tr>
+<th align="left">Collector Type</th>
+<th align="left">option</th>
+<th align="left">Comment （English）</th>
+<th align="left">comment</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">kCollectorTypeMS</td>
+<td align="left">MS</td>
+<td align="left">Non concurrent mark-sweep</td>
+<td align="left">非并发标记-清除</td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeCMS</td>
+<td align="left">CMS</td>
+<td align="left">CMS Concurrent mark-sweep.</td>
+<td align="left">并发标记-清除</td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeSS</td>
+<td align="left">SS</td>
+<td align="left">Semi-space / mark-sweep hybrid, enables compaction.</td>
+<td align="left">半空间压缩</td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeGSS</td>
+<td align="left">GSS</td>
+<td align="left">A generational variant of kCollectorTypeSS</td>
+<td align="left">分代的半空间压缩</td>
+</tr>
+<tr>
+<td align="left"><code>kCollectorTypeMC（Q已经移除）</code></td>
+<td align="left"><code>MC</code></td>
+<td align="left">Mark compact collector</td>
+<td align="left">标记-压缩</td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeHeapTrim</td>
+<td align="left"></td>
+<td align="left">Heap trimming collector, doesn’t do any actual collecting.</td>
+<td align="left">主要是使用TrimSpace函数进行消减空间对象空闲内存资源的时候传入的回收器类型，一般是heap trim触发的。</td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeCC</td>
+<td align="left">CC</td>
+<td align="left">A (mostly) concurrent copying collector.</td>
+<td align="left">并发复制回收</td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeCCBackground</td>
+<td align="left">CCBackground</td>
+<td align="left">The background compaction of the concurrent copying collector.</td>
+<td align="left">后台并发复制回收</td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeInstrumentation</td>
+<td align="left"></td>
+<td align="left">Instrumentation critical section fake collector.</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeAddRemoveAppImageSpace</td>
+<td align="left"></td>
+<td align="left">Fake collector for adding or removing application image spaces.</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeDebugger</td>
+<td align="left"></td>
+<td align="left">Fake collector used to implement exclusion between GC and debugger.</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeHomogeneousSpaceCompact</td>
+<td align="left"></td>
+<td align="left">A homogeneous space compaction collector used in background transition when both foreground and background collector are CMS.</td>
+<td align="left">同构空间压缩（HSC），用于后台回收器类型</td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeClassLinker</td>
+<td align="left"></td>
+<td align="left">Class linker fake collector.</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeJitCodeCache</td>
+<td align="left"></td>
+<td align="left">JIT Code cache fake collector.</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeHprof</td>
+<td align="left"></td>
+<td align="left">Hprof fake collector.</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeAddRemoveSystemWeakHolder</td>
+<td align="left"></td>
+<td align="left">Fake collector for installing/removing a system-weak holder.</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeGetObjectsAllocated</td>
+<td align="left"></td>
+<td align="left">Fake collector type for GetObjectsAllocated</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">kCollectorTypeCriticalSection</td>
+<td align="left"></td>
+<td align="left">Fake collector type for ScopedGCCriticalSection</td>
+<td align="left"></td>
+</tr>
+</tbody></table>
+<p>区分内存分配器：</p>
+<table>
+<thead>
+<tr>
+<th align="left"><a target="_blank" rel="noopener" href="http://opengrok.pt.xiaomi.com/opengrok/xref/v10-p-cepheus-dev/art/runtime/gc/allocator_type.h">Allocator Type</a></th>
+<th align="left">内存分配器</th>
+<th align="left">分配策略</th>
+<th align="left">对象所在的堆空间</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><code>kAllocatorTypeRosAlloc</code></td>
+<td align="left">RosAlloc</td>
+<td align="left">分箱式分配</td>
+<td align="left">Main space</td>
+</tr>
+<tr>
+<td align="left"><code>kAllocatorTypeTLAB</code></td>
+<td align="left">TLAB</td>
+<td align="left">线程私有分配区</td>
+<td align="left">Bump Pointer Space</td>
+</tr>
+<tr>
+<td align="left"><code>kAllocatorTypeBumpPointer</code></td>
+<td align="left">BumpPointer</td>
+<td align="left">头尾相连分配</td>
+<td align="left">Bump Pointer Space</td>
+</tr>
+<tr>
+<td align="left"><code>kAllocatorTypeDlMalloc</code></td>
+<td align="left">DlMalloc</td>
+<td align="left">分箱式分配</td>
+<td align="left">Main space</td>
+</tr>
+<tr>
+<td align="left"><code>kAllocatorTypeNonMoving</code></td>
+<td align="left">NonMoving</td>
+<td align="left">不移动对象分配策略</td>
+<td align="left">Non-Moving Space</td>
+</tr>
+<tr>
+<td align="left"><code>kAllocatorTypeLOS</code></td>
+<td align="left">LOS</td>
+<td align="left">专门分配大对象</td>
+<td align="left">Large Object Space</td>
+</tr>
+<tr>
+<td align="left"><code>kAllocatorTypeRegion</code></td>
+<td align="left"><code>Region</code></td>
+<td align="left">分域管理，顺序分配</td>
+<td align="left"><code>Region Space</code></td>
+</tr>
+<tr>
+<td align="left"><code>kAllocatorTypeRegionTLAB</code></td>
+<td align="left"><code>RegionTLAB</code></td>
+<td align="left">线程私有的<a target="_blank" rel="noopener" href="http://opengrok.pt.xiaomi.com/opengrok/s?refs=kAllocatorTypeRegion&project=v10-p-cepheus-dev">Region</a>分配</td>
+<td align="left"><code>Region Space</code></td>
+</tr>
+</tbody></table>
+<p><a target="_blank" rel="noopener" href="https://source.android.google.cn/devices/tech/dalvik/gc-debug?hl=zh-cn">ART 垃圾回收</a><br><a target="_blank" rel="noopener" href="https://blog.csdn.net/zhang2256109/article/details/103896381">Android Art Gc - 概述</a></p>
+<h3 id="安卓内存管理"><a href="#安卓内存管理" class="headerlink" title="安卓内存管理"></a>安卓内存管理</h3><h3 id="App-是如何沙箱化"><a href="#App-是如何沙箱化" class="headerlink" title="App 是如何沙箱化"></a>App 是如何沙箱化</h3><h2 id="3-项目"><a href="#3-项目" class="headerlink" title="3. 项目"></a>3. 项目</h2><h3 id="应用更新"><a href="#应用更新" class="headerlink" title="应用更新"></a>应用更新</h3><p>灰度，强制更新，分区域更新</p>
 <p>1、通过接口获取线上版本号，versionCode 2、比较线上的 versionCode 和本地 的 versionCode，弹出更新窗口 3、下载 APK 文件（文件下载） 4、安装 APK</p>
 <p>灰度： (1)找单一渠道投放特别版本。 (2)做升级平台的改造，允许针对部分用 户推送升级通知甚至版本强制升级。 (3)开放单独的下载入口。 (4)是两个版本 的代码都打到 app 包里，然后在 app 端植入测试框架，用来控制显示哪个版本。 测试框架负责与服务器端 api 通信，由服务器端控制 app 上 A/B 版本的分布， 可以实现指定的一组用户看到 A 版本，其它用户看到 B 版本。服务端会有相应 的报表来显示 A/B 版本的数量和效果对比。最后可以由服务端的后台来控制，全 部用户在线切换到 A 或者 B 版本~ 无论哪种方法都需要做好版本管理工作，分配特别的版本号以示区别。 当然， 既然是做灰度，数据监控（常规数据、新特性数据、主要业务数据）还是要做到 位，该打的数据桩要打。 还有，灰度版最好有收回的能力，一般就是强制升级 下一个正式版。 强制更新:一般的处理就是进入应用就弹窗通知用户有版本更新，弹窗可以没有 取消按钮并不能取消。这样用户就只能选择更新或者关闭应用了，当然也可以添 加取消按钮，但是如果用户选择取消则直接退出应用。 增量更新：bsdiff：二进制差分工具 bsdiff 是相应的补丁合成工具,根据两个不同 版本的二进制文件，生成补丁文件.patch 文件。通过 bspatch 使旧的 apk 文件与 不定文件合成新的 apk。 注意通过 apk 文件的 md5 值进行区分版本。</p>
 <h3 id="OkHttp-实现原理"><a href="#OkHttp-实现原理" class="headerlink" title="OkHttp 实现原理"></a>OkHttp 实现原理</h3><p>网络底层库，它是基于 http 协议封装的一套请求客户端，虽然它也可以开线程， 但根本上它更偏向真正的请求，跟 HttpClient, HttpUrlConnection 的职责是一样 的。其中封装了网络请求 get、post 等底层操作的实现。</p>
