@@ -79,7 +79,7 @@
 </ul>
 <p>Java String 字面量形式</p>
 <ul>
-<li>字节码中 CONSTANT_Utf8_info 的限制</li>
+<li>字节码中 CONSTANT_Utf8_info 的限制，大小为65534（jvm字节码U2的最大长度）</li>
 <li>Javac 源码逻辑的限制</li>
 <li>方法区大小的限制</li>
 </ul>
@@ -88,6 +88,7 @@
 <li>Java 虚拟机指令 newarray 的限制</li>
 <li>Java 虚拟机堆内存大小的限制</li>
 </ul>
+<p>String内部是以char数组的形式存储，数组的长度是int类型，那么String允许的最大长度就是Integer.MAX_VALUE了。又由于java中的字符是以16位存储的，因此大概需要4GB的内存才能存储最大长度的字符串。</p>
 <p>String 为什么要设计成不可变的？<br>String 是不可变的（修改 String 时，不会在原有的内存地址修改，而是重新指向 一个新对象），String 用 final 修饰，不可继承，String 本质上是个 final 的 char[] 数组，所以 char[]数组的内存地址不会被修改，而且 String 也没有对外暴露修改 char[]数组的方法。不可变性可以保证线程安全以及字符串串常量池的实现。</p>
 <p>String，StringBuffer，StringBuilder 有哪些不同<br>三者在执行速度方面的比较：StringBuilder &gt; StringBuffer &gt; String<br>String 每次变化一个值就会开辟一个新的内存空间<br>StringBuilder：线程非安全的<br>StringBuffer：线程安全的</p>
 <p>对于三者使用的总结：<br>1.如果要操作少量的数据用 String。<br>2.单线程操作字符串缓冲区下操作大量数据用 StringBuilder。<br>3.多线程操作字符串缓冲区下操作大量数据用 StringBuffer。</p>
@@ -181,7 +182,16 @@
 <p>JAVA 自动内存管理：给对象分配内存 以及 回收分配给对象的内存。<br>1、对象优先在 Eden 分配，当 Eden 区没有足够空间进行分配时，虚拟机将发起 一次 MinorGC。<br>2、大对象直接进入老年代。如很长的字符串以及数组。很长的字符串以及数组。<br>3、长期存活的对象将进入老年代。当对象在新生代中经历过一定次数（默认为 15）的 Minor GC 后，就会被晋升到老年代中。<br>4、动态对象年龄判定。为了更好地适应不同程序的内存状况，虚拟机并不是永 远地要求对象年龄必须达到了 MaxTenuringThreshold 才能晋升老年代，如果在 Survivor 空间中相同年龄所有对象大小的总和大于 Survivor 空间的一半，年龄大 于或等于该年龄的对象就可以直接进入老年代，无须等到 MaxTenuringThreshold 中要求的年龄。</p>
 <h3 id="类加载器"><a href="#类加载器" class="headerlink" title="类加载器"></a>类加载器</h3><p>启动类加载器（Bootstrap ClassLoader）：负责加载<JAVA_HOME>\lib目录下或者被-Xbootclasspath 参数所指定的路径的，并且是被虚拟机所 识别的库到内存中。<br>扩展类加载器（Extension ClassLoader）：负责加载<JAVA_HOME>\lib\ext目录下或者被 java.ext.dirs 系统变量所指定的路径的所有类库到内存中。<br>应用类加载器（Application ClassLoader）：负责加载用户类路径上的指 定类库，如果应用程序中没有实现自己的类加载器，一般就是这个类加载 器去加载应用程序中的类库。</p>
 <p>ClassLoader 使用的是双亲委托模型来搜索类的，每个 ClassLoader 实例都有一 个父类加载器的引用（不是继承的关系，是一个包含的关系），虚拟机内置的类 加载器（Bootstrap ClassLoader）本身没有父类加载器，但可以用作其它classLoader 实例的的父类加载器。<br>当一个 ClassLoader 实例需要加载某个类时，它会在试图搜索某个类之前，先把 这个任务委托给它的父类加载器，这个过程是由上至下依次检查的，首先由最顶 层的类加载器 Bootstrap ClassLoader 试图加载，如果没加载到，则把任务转交给 Extension ClassLoader 试图加载，如果也没加载到，则转交给 App ClassLoader 进行加载，如果它也没有加载得到的话，则返回给委托的发起者，由它到指定的 文件系统或网络等待 URL 中加载该类。<br>如果它们都没有加载到这个类时，则抛出 ClassNotFoundException 异常。否则 将这个找到的类生成一个类的定义，将它加载到内存当中，最后返回这个类在内 存中的 Class 实例对象。</p>
-<h3 id="JVM-跟-Art、Dalvik-对比？"><a href="#JVM-跟-Art、Dalvik-对比？" class="headerlink" title="JVM 跟 Art、Dalvik 对比？"></a>JVM 跟 Art、Dalvik 对比？</h3><h3 id="Jvm调优"><a href="#Jvm调优" class="headerlink" title="Jvm调优"></a>Jvm调优</h3><p>JVM 调优的常见命令工具包括<br>1）jps 命令用于查询正在运行的 JVM 进程，<br>2）jstat 可以实时显示本地或远程 JVM 进程中类装载、内存、垃圾收集、JIT 编 译等数据<br>3）jinfo 用于查询当前运行这的 JVM 属性和参数的值。<br>4）jmap 用于显示当前 Java 堆和永久代的详细信息<br>5）jhat 用于分析使用 jmap 生成的 dump 文件，是 JDK 自带的工具<br>6）jstack 用于生成当前 JVM 的所有线程快照，线程快照是虚拟机每一条线程正 在执行的方法,目的是定位线程出现长时间停顿的原因。</p>
+<h3 id="JVM-跟-Art、Dalvik-对比？"><a href="#JVM-跟-Art、Dalvik-对比？" class="headerlink" title="JVM 跟 Art、Dalvik 对比？"></a>JVM 跟 Art、Dalvik 对比？</h3><p>Dalvik时期，对象的内存分配和回收都比较慢。因为Dalvik使用的GC是单线程的，在垃圾回收期间要暂停虚拟机上的其他所有线程。所以这个时期的开发建议就是尽可能不要分配内存（GC=卡顿，所以不分配，就不用回收了。。）<br>Dalvik GC采用了并发标记-清除（CMS）算法。标记-清除算法的特点是，不用的对象不会马上回收，而是等到可用内存用尽之后才回收。这样导致了很多对象在用完之后还会在内存中存活较长时间，不能及时释放。<br>而且Dalvik GC只对后台的App进行内存整理（压缩），导致（前台App）堆中出现大量内存碎片，这些碎片往往都比较小，无法被分配给新对象，因为新的对象需要大块的连续内存空间。造成了严重的内存浪费。</p>
+<p>ART:<br>内存分配/回收的算法依然是CMS（并发标记-清除），但是优化了很多地方。</p>
+<ol>
+<li>最明显的改动，就是用RosAlloc代替旧的dlmalloc作为内存分配的算法。在native代码中调用malloc或在Java/C++中使用new关键字创建对象时都会用到RosAlloc算法。该算法的优点在于可以针对特定线程进行内存分配，这个优点给之后Oreo版本的进一步优化提供了基础。</li>
+<li>另一个进步是GC终于支持了前台App的堆内存压缩。这样前台的App在需要的时候也可以释放部分内存，降低OOM的概率，减少内存碎片，减少因内存碎片而导致的可用内存不足引发的GC，大幅提升了整体性能。</li>
+<li>这一版的GC使用的更细粒度的锁，改善了在最终回收前的那一次停顿（细粒度锁，阻塞的代码更少了）。同时也把第一步的查找Root sets改为并发执行，这样整体上，把运行一次标记-清除的回收操作的耗时从10ms左右减少到3ms左右。</li>
+<li>引入分代回收的机制。每次major gc完成后，垃圾回收器会追踪之后每一个分配的对象，按照各自的存活时间和大小，对这些对象进行“分代”，对象一开始会被放到年轻代区域，存活时间够长的话会被转移到老年代，更“大龄”的放到永久代区域。这个优化对性能的提升是最明显的。堆内存中每个“代”区域都有各自的内存上限，当达到上限的时候，系统会在这个区域发起一次gc，gc的耗时取决于该区域是哪一代，以及区域内有多少活跃的对象。<br>分代回收的引入，节省了内存分配（失败）过程的耗时，因为在内存不足的情况下，会针对不同的区域，只在必要的情况下进行内存回收，比如如果在年轻代可以回收到足够的内存，就直接完成分配，而不需要关心进一步去看老年代和永久代的情况，节省时间。</li>
+</ol>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/cottony/p/12675072.html">Android GC进化史</a></p>
+<h3 id="Jvm调优"><a href="#Jvm调优" class="headerlink" title="Jvm调优"></a>Jvm调优</h3><p>JVM 调优的常见命令工具包括<br>1）jps 命令用于查询正在运行的 JVM 进程，<br>2）jstat 可以实时显示本地或远程 JVM 进程中类装载、内存、垃圾收集、JIT 编 译等数据<br>3）jinfo 用于查询当前运行这的 JVM 属性和参数的值。<br>4）jmap 用于显示当前 Java 堆和永久代的详细信息<br>5）jhat 用于分析使用 jmap 生成的 dump 文件，是 JDK 自带的工具<br>6）jstack 用于生成当前 JVM 的所有线程快照，线程快照是虚拟机每一条线程正 在执行的方法,目的是定位线程出现长时间停顿的原因。</p>
 <p>JVM 常见的调优参数包括：<br>-Xmx:指定 java 程序的最大堆内存, 使用 java -Xmx5000M -version 判断当前系统 能分配的最大堆内存<br>-Xms:指定最小堆内存, 通常设置成跟最大堆内存一样，减少 GC<br>-Xmn:设置年轻代大小。整个堆大小=年轻代大小 + 年老代大小。所以增大年轻 代后，将会减小年老代大小。此值对系统性能影响较大，Sun 官方推荐配置为整 个堆的 3/8。<br>-Xss:指定线程的最大栈空间, 此参数决定了 java 函数调用的深度, 值越大调用深 度越深, 若值太小则容易出栈溢出错误(StackOverflowError)<br>-XX:PermSize：指定方法区(永久区)的初始值,默认是物理内存的 1/64， 在 Java8 永久区移 除, 代之的是元数据区， 由-XX:MetaspaceSize 指定<br>-XX:MaxPermSize：指定方法区的最大值, 默认是物理内存的 1/4， 在 java8 中由 -XX:MaxMetaspaceSize 指定元数据区的大小<br>-XX:NewRatio=n:年老代与年轻代的比值，-XX:NewRatio=2, 表示年老代与年轻代的比值为2:1<br>-XX:SurvivorRatio=n:Eden 区与 Survivor 区的大小比值，-XX:SurvivorRatio=8 表示 Eden 区与 Survivor 区的大小比值是 8:1:1，因为 Survivor 区有两个(from, to)</p>
 <h3 id="HTTP-HTTPS"><a href="#HTTP-HTTPS" class="headerlink" title="HTTP/HTTPS"></a>HTTP/HTTPS</h3><p>HTTPS（全称：Hypertext Transfer Protocol over Secure Socket Layer），是以安全为目标 的 HTTP 通道，简单讲是 HTTP 的安全版。即 HTTP 下加入 SSL 层，HTTPS 的安全基础是 SSL， 因此加密的详细内容就需要 SSL。 它是一个 URI scheme（抽象标识符体系），句法类同 http: 体系。用于安全的 HTTP 数据传输。https:URL 表明它使用了 HTTP，但 HTTPS 存在不同于 HTTP 的默认端口及一个加密/身份验证层（在 HTTP 与 TCP 之间）。这个系统的最初研发由 网景公司进行，提供了身份验证与加密通讯方法，现在它被广泛用于万维网上安全敏感的通 讯，例如交易支付方面。</p>
 <p>SSL/TLS 的常见开源实现是 OpenSSL，OpenSSL 是一个开放源代码的软件库包，应用程序 可以使用这个包来进行安全通信，避免窃听，同时确认另一端连接者的身份。这个包广泛被 应用在互联网的网页服务器上。TLS 是 SSL 的升级替代版。</p>
@@ -288,6 +298,43 @@
 <p>3、对比 hprof 文件，检测出复杂情况下的内存泄露：</p>
 <p>通用对比方式：在 Navigation History 下面选择想要对比的 dominator_tree/histogram，右击选择 Add to Compare Basket，然后在 Compare Basket 一栏中点击红色感叹号（Compare the results）生成对比表格（Compared Tables），在顶部 Regex 输入要检测的类，查看引用关系或对象数量去进行分析 即可。 针对于 Historam 的快速对比方式：直接选择 Histogram 上方的 Compare to another Heap Dump 选择要比较的 hprof 文件的 Historam 即可。</p>
 <h4 id="Traceview"><a href="#Traceview" class="headerlink" title="Traceview"></a>Traceview</h4><p>Traceview 是 Android 平台特有的数据采集和分析工具，它主要用于分析 Android 中应用程序的 hotspot（瓶颈）。Traceview 本身只是一个数据分析工 具，而数据的采集则需要使用 Android SDK 中的 Debug 类或者利用 DDMS 工 具。二者的用法如下：开发者在一些关键代码段开始前调用 Android SDK 中 Debug 类的 startMethodTracing 函数，并在关键代码段结束前调用 stopMethodTracing 函数。这两个函数运行过程中将采集运行时间内该应用所 有线程（注意，只能是 Java 线程） 的函数执行情况， 并将采集数据保存到 /mnt/sdcard/下的一个文件中。 开发者然后需要利用 SDK 中的 Traceview 工 具来分析这些数据。</p>
+<p>随着android ide的升级，之前的一些调试工具逐渐废弃并被新的工具替代。之前大部分的调试工具都位于Android Device Monitor中，该工具集在android studio 3.1中被废弃并在android studio 3.2中被移除。如下表格列出以前Android Device Monitor的官方替代工具。</p>
+<table>
+<thead>
+<tr>
+<th>原工具</th>
+<th>替代工具</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dalvik Debug Monitor Server (DDMS)</td>
+<td>使用Android studio 3.0中引入的<a target="_blank" rel="noopener" href="https://developer.android.com/studio/profile/android-profiler.html">Android Profiler</a> 调试应用的cpu，内存和网络使用，对于其它调试任务，比如给连接的设备发送命令来实现端口转发、文件传输、截图等，可以使用<a target="_blank" rel="noopener" href="https://developer.android.com/studio/command-line/adb.html">ADB</a> 、<a target="_blank" rel="noopener" href="https://developer.android.com/studio/run/emulator.html">Android Emulator</a>、<a target="_blank" rel="noopener" href="https://developer.android.com/studio/debug/device-file-explorer.html">Device File Explorer</a>或者<a target="_blank" rel="noopener" href="https://developer.android.com/studio/debug/index.html">Debugger Window</a></td>
+</tr>
+<tr>
+<td>Traceview</td>
+<td>参照<a target="_blank" rel="noopener" href="https://developer.android.com/studio/profile/generate-trace-logs.html">Instrumenting your app</a>在代码中使用<a target="_blank" rel="noopener" href="https://developer.android.com/reference/android/os/Debug.html">Debug</a>类，记录并导出.trace文件。可以使用android studio的<a target="_blank" rel="noopener" href="https://developer.android.com/studio/profile/cpu-profiler.html">CPU Profiler</a>来检查应用的实时CPU使用</td>
+</tr>
+<tr>
+<td>Systrace</td>
+<td>如果你想检查原生系统进程或者定位应用中的ui卡顿，可以使用命令行版本的<a target="_blank" rel="noopener" href="https://developer.android.com/studio/profile/systrace-commandline.html">Systrace</a>或者CPU profiler中简化版的<strong>System Trace</strong>。</td>
+</tr>
+<tr>
+<td>Tracer for OpenGL ES</td>
+<td>使用<a target="_blank" rel="noopener" href="https://github.com/google/gapid">Graphic API Debugger</a></td>
+</tr>
+<tr>
+<td>Hierarchy Viewer</td>
+<td>如果想检查应用实时的布局，可以使用<a target="_blank" rel="noopener" href="https://developer.android.com/studio/debug/layout-inspector.html">Layout Inspector</a>。 如果想测量应用的帧率，可以使用<a target="_blank" rel="noopener" href="https://developer.android.com/reference/android/view/Window.OnFrameMetricsAvailableListener.html">Window.OnFrameMetricsAvailableListener </a>接口，在<a target="_blank" rel="noopener" href="https://android-developers.googleblog.com/2017/08/understanding-performance-benefits-of.html">这里</a>有详细描述</td>
+</tr>
+<tr>
+<td>Pixel Perfect</td>
+<td>使用Layout Inspector</td>
+</tr>
+<tr>
+<td>Network Traffic tool</td>
+<td>如果想检查网络访问数据，可以使用<a target="_blank" rel="noopener" href="https://developer.android.com/studio/profile/network-profiler">Network Profiler</a></td>
+</tr>
+</tbody></table>
 <h3 id="什么是-ANR？-如何避免它？"><a href="#什么是-ANR？-如何避免它？" class="headerlink" title="什么是 ANR？ 如何避免它？"></a>什么是 ANR？ 如何避免它？</h3><p>在 Android 上，如果你的应用程序有一段时间响应不够灵敏，系统会向用户 显示一个对话框，这个对话框称作应 用程序无响应（ANR：Application NotResponding）对话框。 用户可以选择让程序继续运行，但是，他们在使用 你的 应用程序时，并不希望每次都要处理这个对话框。因此 ，在程序里对响应 性能的设计很重要这样，这样系统就不会显 示 ANR 给用户。</p>
 <p>不同的组件发生 ANR 的时间不一样，Activity 是 5 秒，BroadCastReceiver 是 10 秒，Service 是 20 秒、contentProvider(onCreate)为10秒（均为前台）。</p>
 <p>如果开发机器上出现问题，我们可以通过查看/data/anr/traces.txt 即可，最新的 ANR 信息在最开始部分。</p>
